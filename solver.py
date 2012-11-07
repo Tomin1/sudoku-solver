@@ -3,13 +3,14 @@
 # This is supposed to solve Sudokus
 # Made by Tomin (http://tomin.dy.fi/)
 # ALL THE CODE BELONGS TO HIM!
-# YOU ARE FORBIDDEN TO USE OR COPY THIS CODE (for now)!
-# © Tomi Leppänen (aka Tomin), 2011-2012, ALL RIGHTS RESERVED!
+# YOU ARE FORBIDDEN TO USE, MODIFY OR COPY THIS CODE (for now)!
+# © 2011-2012, Tomi Leppänen (aka Tomin), ALL RIGHTS RESERVED!
 import sys
 from copy import deepcopy
-from threading import Thread
+from multiprocessing import Process, Manager, Value, active_children, cpu_count
+from time import sleep
 
-version = "v4"
+version = "v5"
 
 def parse_sudoku(sudoku): # parses sudoku from array
     a = sudoku.split(",")
@@ -48,18 +49,45 @@ def print_help(command):
         ''' [-h] [--help] [-1] [-t][<threads>] <sudoku>
 -h --help       displays this help
 -1              limits answers to only one
--t              use multiprocessing, unlimited threads
--t<threads>     use multiprocessing, limits threads to number <threads>
+-t              use multiprocessing, uses as many threads as computer has CPUs
+-t<threads>     use multiprocessing, uses number of <threads> threads
 -V              prints version and licensing information''')
 
+class Runner(Process): # Runs Solver objects
+    def __init__(self, queue, sudokus_ready, info_object):
+        Process.__init__(self)
+        self.queue = queue
+        self.ready = sudokus_ready
+        self.info = info_object
+    def run(self,noloop=False):
+        while self.info.solvers_get() > 0:
+            self.info.new_loop()
+            solver = self.queue.get()
+            solver.run()
+            if solver.done == True:
+                if solver.good == True: # if sudoku is completed
+                    self.ready.put(solver)
+                    self.info.solvers_dec()
+                    if self.info.answers_wanted_get() <= self.ready.qsize():
+                        self.info.solvers_kill()
+                else: # if sudoku is not completed
+                    if solver.split_request == True: # actual splitting
+                        self.info.splits_inc()
+                        for number in solver.numbers:
+                            tmp = Solver(deepcopy(solver.sudoku))
+                            tmp.sudoku[solver.row][solver.col] = number
+                            self.queue.put(tmp)
+                            self.info.solvers_inc()
+                        self.info.solvers_dec()
+                    else: # if sudoku is faulty
+                        self.info.dead_solvers_inc() 
+                        self.info.solvers_dec()
+            else: # if solver needs to work more
+                self.queue.put(solver)
+            if noloop:
+                break
+
 class Solver(): # the Solver object
-    class Runner(Thread): # Threading
-        def __init__(self, solver):
-            Thread.__init__(self)
-            self.solver = solver
-        def run(self):
-            self.solver.run()
-    
     def __init__(self, sudoku):
         self.sudoku = sudoku
         self.done = False # if Solver should be stopped
@@ -69,13 +97,13 @@ class Solver(): # the Solver object
         self.split_request = False # if split is requested or not
     
     def __str__(self):
-        s = ""
+        s = None
         for row in self.sudoku:
             for col in row:
-                if s != "":
-                    s = s+","+str(col)
-                else:
+                if s == None:
                     s = str(col)
+                else:
+                    s = s+","+str(col)
         return s
     
     def get_grid(self,row,col): # checks which grid is being procecced
@@ -210,6 +238,56 @@ class Solver(): # the Solver object
                 return True
         return False
 
+class Info(): # Info to be shared between Runners
+    def __init__(self):
+        self.max_solvers = Value('i',0) # max solvers
+        self.splits = Value('i',0) # splits
+        self.dead_solvers = Value('i',0) # solvers that ended deadlock
+        self.solvers = Value('i',0) # solvers in queue
+        self.loops = Value('i',0)
+    
+    def solvers_inc(self,inc = 1):
+        self.solvers.value = self.solvers.value + inc
+    
+    def solvers_dec(self,dec = 1):
+        self.solvers.value = self.solvers.value - dec
+        
+    def solvers_kill(self):
+        self.solvers.value = 0
+        
+    def solvers_get(self):
+        return self.solvers.value
+    
+    def dead_solvers_inc(self,inc = 1):
+        self.dead_solvers.value = self.dead_solvers.value + inc
+        
+    def dead_solvers_get(self):
+        return self.dead_solvers.value
+    
+    def splits_inc(self,inc = 1):
+        self.splits.value = self.splits.value + inc
+        
+    def splits_get(self):
+        return self.splits.value
+        
+    def update_max_solvers(self):
+        self.max_solvers.value = self.solvers.value
+        
+    def max_solvers_get(self):
+        return self.max_solvers.value
+    
+    def answers_wanted_set(self,value):
+        self.answers_wanted = value
+    
+    def answers_wanted_get(self):
+        return self.answers_wanted
+    
+    def new_loop(self):
+        self.loops.value = self.loops.value + 1
+        
+    def loops_get(self):
+        return self.loops.value
+    
 def main(argv):
     # prepare some things
     answers_wanted = 0 # 0 means unlimited answers, default 0
@@ -241,75 +319,55 @@ You have no right to copy, redistribute, modify or use this code''')
         print_err("Invalid sudoku string!")
         return 2
     # begin solving
-    wsolver = [] # array for wip Solvers
-    wsolver.append(Solver(sudoku))
-    if not wsolver[0].isgood(): # one more check
+    manager = Manager() # Manager
+    info = Info() # Info object with some shared information
+    info.answers_wanted_set(answers_wanted)
+    wsolver = manager.Queue() # Queue for wip Solvers
+    dsudoku = manager.Queue() # Queue for sudokus that are done
+    sudoku = Solver(sudoku)
+    if not sudoku.isgood(): # one more check
         print_err("Invalid sudoku!")
         return 2
-    dsudoku = [] # array for sudokus that are done
-    max_solvers = 0 # amount of max solvers
-    splits = 0 # amount of splits
-    dead_solvers = 0 # amount of Solvers that ended deadlock
-    while(len(wsolver) > 0): # while there is something to do
-        if use_threads:
-            runners = [] # array for runners in solvers
-            if use_threads == True:
-                max = len(wsolver)
-            elif len(wsolver) < use_threads:
-                max = len(wsolver)
-            else:
-                max = use_threads
-            for cur in range(0,max):
-                runners.append(wsolver[cur].Runner(wsolver[cur]))
-                runners[cur].start()
+    wsolver.put(sudoku)
+    info.solvers_inc()
+    if use_threads:
+        runners = [] # array for runners that use solvers
+        if use_threads == True:
+            max = cpu_count()
         else:
-            max = len(wsolver)
+            max = use_threads
         for cur in range(0,max):
-            if use_threads:
-                runners[cur].join()
-            else:
-                wsolver[cur].run()
-            if wsolver[cur].done == True:
-                if wsolver[cur].good == True: # if sudoku is completed
-                    dsudoku.append(wsolver[cur])
-                    wsolver.remove(wsolver[cur])
-                    if answers_wanted <= len(dsudoku):
-                        wsolver = []
-                    break
-                else: # if sudoku is not completed
-                    if wsolver[cur].split_request == True: # actual splitting
-                        splits = splits+1
-                        for number in wsolver[cur].numbers:
-                            tmp = Solver(deepcopy(wsolver[cur].sudoku))
-                            tmp.sudoku[wsolver[cur].row][wsolver[cur].col] = \
-                                number
-                            wsolver.append(tmp)
-                        wsolver.remove(wsolver[cur])
-                        break
-                    else: # if sudoku is faulty
-                        wsolver.remove(wsolver[cur])
-                        dead_solvers = dead_solvers+1
-                        break
+            runners.append(Runner(wsolver,dsudoku,info))
+            runners[cur].start()
+    else:
+        runner = Runner(wsolver,dsudoku,info)
+    while info.solvers_get() > 0: # while there is something to do
         # printing status
-        if len(wsolver) > max_solvers: # keep eye on maximum solvers
-            max_solvers = len(wsolver)
+        if not use_threads:
+            runner.run(True)
+        else:
+            sleep(0.05)
+        if info.solvers_get() > info.max_solvers_get():
+            info.update_max_solvers()
         if use_threads:
             running = len(runners)
         else:
-            running = len(wsolver)
+            running = info.solvers_get()
         print_status("Solvers: Running: "+str(running)+ \
-            " Maximum: "+str(max_solvers)+ \
-            " Splits: "+str(splits)+ \
-            " Dead: "+str(dead_solvers)+ \
-            " Answers: "+str(len(dsudoku))+"    ")
+            " Maximum: "+str(info.max_solvers_get())+ \
+            " Splits: "+str(info.splits_get())+ \
+            " Dead: "+str(info.dead_solvers_get())+ \
+            " Answers: "+str(dsudoku.qsize())+ \
+            " Loops: "+str(info.loops_get())+"    ")
     print_msg("") # prints newline
     # printing results
-    if len(dsudoku) == 0:
+    if dsudoku.qsize() == 0:
         print_msg("Sudoku was not solved!")
         return 1
     else:
-        print_msg("Answers: "+str(len(dsudoku)))
-        for wsudoku in dsudoku:
+        print_msg("Answers: "+str(dsudoku.qsize()))
+        while not dsudoku.empty():
+            wsudoku = dsudoku.get()
             print_msg("One answer is:")
             for row in wsudoku.sudoku:
                 print_msg(str(row))
@@ -321,5 +379,5 @@ if __name__ == "__main__":
         sys.exit(main(sys.argv))
     except KeyboardInterrupt:
         print_msg("")
-        print_err("User interrupted")
+        raise
         sys.exit(2)

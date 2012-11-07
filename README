@@ -3,15 +3,11 @@ Made by Tomin (http://tomin.dy.fi/)
 ALL THE CODE BELONGS TO HIM!
 YOU ARE FORBIDDEN TO USE, COPY OR REDISTRIBUTE THIS CODE (for now)!
 © Tomi Leppänen (aka Tomin), 2011, ALL RIGHTS RESERVED!
-This version is called "unneeded"
+This version is called "multiprocessor"
 
 Solves most sudokus and prints the best answers it gets
-Uses multithreading and has small a commandline interface
+Uses multiprocessing and has small a commandline interface
 Prints statusbar while running
 Don't try to solve sudokus that can't really be solved
 or you can but it will take a very long time and you'll 
 run out of memory for sure.
-
-The very first version to support python 3!
-The use of multithreading doesn't mean that program actually 
-uses multiple cores, because of GIL this version runs single-threaded
