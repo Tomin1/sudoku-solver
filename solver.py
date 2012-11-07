@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 #
-#  This is supposed to solve Sudokus
+#  Sudoku Solver
 #  Copyright (C) 2011-2012, Tomi Leppänen (aka Tomin)
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -18,32 +18,44 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
 
-from util.printing import *
-from sudoku.runner import *
-from sudoku.solver import *
-from sudoku.tools import *
-from multiprocessing import Manager, cpu_count
-from time import sleep
+"""Sudoku Solver
 
-version = "v7"
+Copyright (C) 2011-2012, Tomi Leppänen
+This program comes with ABSOLUTELY NO WARRANTY. This is free software, 
+and you are welcome to redistribute it under certain conditions.
+See LICENSE file for more information.
 
-def print_help(command):
-    print_err('''Usage: '''+command+
-        ''' [-1] [-t][<threads>] [-u] <sudoku>
-or: '''+command+''' [-h] [-V]
+Usage: <the name of this file [-1] [-t[<threads>]] [-u] <sudoku>
+or: <the name of this file> [-h] [-V]
 -h              displays this help
 -1              limits answers to only one
 -t              use multiprocessing, uses as many threads as computer has CPUs
 -t<threads>     use multiprocessing, uses number of <threads> threads
 -u              don't use suffixes in long numbers
--V              prints version and licensing information''')
+-V              prints version and licensing information
+"""
+
+from util.printing import *
+from sudoku.runner import *
+from sudoku.solver import *
+from sudoku.tools import *
+# Does this cause any problems on systems without Python's multiprocessing?
+from multiprocessing import cpu_count
+from time import sleep
+
+version = "v7"
+
+def print_help(command):
+    """Prints help"""
+    print_msg(__doc__.replace("<the name of this file>",command))
 
 def print_version(command):
+    """Prints version information"""
     print_msg('''Sudoku Solver, version '''+version+'''
 Copyright (C) 2011-2012, Tomi Leppänen
-This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
-This is free software, and you are welcome to redistribute it
-under certain conditions; type `show c' for details.''')
+This program comes with ABSOLUTELY NO WARRANTY. This is free software, 
+and you are welcome to redistribute it under certain conditions.
+See LICENSE file for more information.''')
 
 arguments = {
     "-h":False,
@@ -54,6 +66,10 @@ arguments = {
 }
 
 def main(argv):
+    """Main function
+    
+    This can be considered as a reference implementation of a sudoku solver.
+    """
     sudoku = None
     # check arguments
     if len(argv) < 2:
@@ -72,7 +88,14 @@ def main(argv):
                 break
         else:
             sudoku = arg
-    # Try to parse sudoku
+    # help and version
+    if arguments["-h"]:
+        print_help(argv[0])
+        return 0
+    if arguments["-V"]:
+        print_version(argv[0])
+        return 0
+    # try to parse sudoku
     try: 
         sudoku = parse_sudoku(sudoku)
     except SudokuError as e:

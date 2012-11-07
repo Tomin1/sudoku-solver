@@ -4,12 +4,12 @@ The program is licensed under GPL v3
 See LICENSE file for complete license.
 More general info about GPL: http://www.gnu.org/copyleft/gpl.html
 
-This version is yet to be named
+This version is called sophisticated
 
 GENERAL:
 --------------------------------------------------------------------------------
-Solves most sudokus and prints all answers (exept if otherwise stated). This 
-program can take advantage of multithreading and has a small commandline 
+Solves most sudokus and prints all answers (unless -1 argument is specified). 
+This program can take advantage of multithreading and has a small commandline 
 interface. Solver prints statusbar while running and uses suffixes like "k" for 
 1000 to reduce space that statusbar needs.
 

@@ -18,8 +18,20 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
 
-class Solver(): # the Solver object
+"""Solver object"""
+
+class Solver():
+    """Solver object
+    
+    This object solves sudokus. It can be used with tools to create sudoku 
+    solver application or combined with Runner object to make life easier. 
+    See Runner object in sudoku.runner for more information about it.
+    """
     def __init__(self, sudoku):
+        """Constructor
+        
+        sudoku parameter is an list created by parse_sudoku in sudoko.tools.
+        """
         self.sudoku = sudoku
         self.done = False # if Solver should be stopped
         self.good = False # if sudoku is completed
@@ -37,10 +49,15 @@ class Solver(): # the Solver object
                     s = s+","+str(col)
         return s
     
-    def get_grid(self,row,col): # checks which grid is being procecced
+    def get_grid(self,row,col):
+        """checks which grid is being procecced"""
         return [int((row+3)/3),int((col+3)/3)]
     
-    def isgood_final(self): # checks if sudoku is correct, only for completed
+    def isgood_final(self):
+        """Checks if sudoku is completed correctly
+        
+        Use only for completed sudokus
+        """
         for a in range(0,9):
             suma = 0
             sumb = 0
@@ -59,7 +76,11 @@ class Solver(): # the Solver object
                     return False
         return True
     
-    def isgood(self): # checks if sudoku is correct, slower
+    def isgood(self):
+        """Checks if a partial (or complete) sudoku is correct
+        
+        This is slower than isgood_final
+        """
         for a in range(0,9):
             numbersa = []
             numbersb = []
@@ -92,7 +113,8 @@ class Solver(): # the Solver object
                                 return False
         return True
     
-    def isready(self): # checks if all fields are filled
+    def isready(self):
+        """Checks if all cells are filled"""
         for row in self.sudoku:
             try:
                 row.index("")
@@ -102,7 +124,8 @@ class Solver(): # the Solver object
                 return False
         return True
     
-    def get_numbers(self,row,col): # returns usable numbers
+    def get_numbers(self,row,col):
+        """Returns numbers that can be filled into a cell"""
         numbers = []
         numbers.append(self.sudoku[row][col])
         numbers = list(range(1,10))
@@ -125,7 +148,14 @@ class Solver(): # the Solver object
                         pass
         return numbers
     
-    def run(self): # actual solving
+    def run(self):
+        """Solves the sudoku
+        
+        This solves some of the sudoku and should be called until the sudoku 
+        is ready. The status can be monitored using Sudoku objects good, done 
+        and split_request attributes. Also returns False if something is wrong 
+        otherwise returns True.
+        """
         changed = False
         if self.isready():
             if self.isgood_final():
@@ -172,4 +202,3 @@ class Solver(): # the Solver object
                 self.good = False
                 return False
         return True
- 

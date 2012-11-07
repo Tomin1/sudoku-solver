@@ -45,6 +45,7 @@ def print_err(*messages,separator=" "):
 
 status_max_len = 0
 def print_status(message):
+    """Prints status message"""
     global status_max_len
     stdout.write("\r")
     dif = status_max_len-len(message)

@@ -17,18 +17,37 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
+
+"""Runner and Info objects"""
+
 from copy import deepcopy
-from multiprocessing import Process, Value
+try:
+    from multiprocessing import Process, Value
+except ImportError:
+    from multiprocessing.dummy import Process, Value
 from solver import Solver
 
-class Runner(Process): # Runs Solver objects
+class Runner(Process):
+    """Runner object
+    
+    Object that solves sudokus using Solver. Creates necessary queues and 
+    monitors sudoku's status. Uses multiprocessing.
+    """
     def __init__(self, queue, sudokus_ready, info_object):
+        """Constructor
+        
+        Arguments:
+        queue -- Queue for unfinished sudokus
+        sudokus_ready -- Queue for finished sudokus
+        info_object -- See Info object in this module
+        """
         Process.__init__(self)
         self.queue = queue
         self.ready = sudokus_ready
         self.info = info_object
     
     def run(self,noloop=False):
+        """ See Python's Processing class's run method """
         while self.info.solvers.value > 0:
             self.info.loops.value = self.info.loops.value + 1
             solver = self.queue.get()
@@ -60,7 +79,11 @@ class Runner(Process): # Runs Solver objects
                 if noloop:
                     break
 
-class Info(): # Info to be shared between Runners
+class Info:
+    """Info object
+    
+    Contains information to be shared between runners.
+    """
     def __init__(self):
         self.max_solvers = Value('i',0) # max solvers
         self.splits = Value('i',0) # splits
@@ -69,11 +92,12 @@ class Info(): # Info to be shared between Runners
         self.loops = Value('i',0) # how many loops has run
         self.answers_wanted = Value('i',0) # how many answers are needed
     
-    def getReadable(self,v,d=False): # Gives more readable representation of v
+    def getReadable(self,value,d=False):
+        """Gives more readable representation of value"""
         if d:
-            return str(v.value)
+            return str(value.value)
         
-        a = v.value
+        a = value.value
         s = str(a)
         if a // 1000000:
             return s[:-6]+"M"+s[-6]

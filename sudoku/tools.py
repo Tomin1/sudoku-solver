@@ -18,7 +18,10 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
 
-def parse_sudoku(sudoku): # parses sudoku from array
+"""Tools for solving sudokus"""
+
+def parse_sudoku(sudoku):
+    """Parses sudoku from a string and returns a list"""
     if not sudoku:
         raise SudokuError('Sudoku undefined')
     a = sudoku.split(",")
@@ -40,7 +43,8 @@ def parse_sudoku(sudoku): # parses sudoku from array
         sudoku.append(b)
     return sudoku
 
-class SudokuError(Exception): # General exception for sudokus
+class SudokuError(Exception):
+    """General exception for sudokus"""
     def __init__(self,value):
         self.value = value
     def __str__(self):
