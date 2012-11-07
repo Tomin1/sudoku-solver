@@ -3,10 +3,10 @@ Made by Tomin (http://tomin.dy.fi/)
 ALL THE CODE BELONGS TO HIM!
 YOU ARE FORBIDDEN TO USE, COPY OR REDISTRIBUTE THIS CODE (for now)!
 © Tomi Leppänen (aka Tomin), 2011, ALL RIGHTS RESERVED!
-This version is named "basic"
+This version is named "advanced"
 
-Solves most sudokus and may print multiple answers
-
-This one may have a bug why solver will never complete, probaly need to
-implement deadlocks as in v3 and newer. Basicly we need to check if some 
-cell can't get any value at all.
+Solves most sudokus and prints the best answers it gets
+This version can also print it's status
+Don't try to solve sudokus that can't really be solved
+or you can but it will take a very long time and you'll 
+run out of memory for sure.
