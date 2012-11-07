@@ -1,0 +1,8 @@
+This is supposed to solve Sudokus
+Made by Tomin (http://tomin.dy.fi/)
+ALL THE CODE BELONGS TO HIM!
+YOU ARE FORBIDDEN TO USE, COPY OR REDISTRIBUTE THIS CODE (for now)!
+© Tomi Leppänen (aka Tomin), 2011, ALL RIGHTS RESERVED!
+This version is named "simple"
+
+Solves only real sudokus that can have only one answer without guessing anything
