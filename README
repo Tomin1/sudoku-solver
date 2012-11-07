@@ -3,6 +3,10 @@ Made by Tomin (http://tomin.dy.fi/)
 ALL THE CODE BELONGS TO HIM!
 YOU ARE FORBIDDEN TO USE, COPY OR REDISTRIBUTE THIS CODE (for now)!
 © Tomi Leppänen (aka Tomin), 2011, ALL RIGHTS RESERVED!
-This version is named "simple"
+This version is named "basic"
 
-Solves only real sudokus that can have only one answer without guessing anything
+Solves most sudokus and may print multiple answers
+
+This one may have a bug why solver will never complete, probaly need to
+implement deadlocks as in v3 and newer. Basicly we need to check if some 
+cell can't get any value at all.
