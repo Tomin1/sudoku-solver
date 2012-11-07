@@ -18,7 +18,7 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
 
-"""Runner and Info objects"""
+"""Runner, Info and SharedInt objects"""
 
 from copy import deepcopy
 try:

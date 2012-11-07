@@ -108,7 +108,7 @@ def main(argv):
     # begin solving
     manager = Manager() # Manager
     info = Info() # Info object with some shared information
-    if arguments["-1"]: info.answers_wanted.value = 1
+    if arguments["-1"]: info.answers_wanted.set(1)
     else: info.answers_wanted.set(0)
     wsolver = manager.Queue() # Queue for wip Solvers
     dsudoku = manager.Queue() # Queue for sudokus that are done
@@ -168,6 +168,6 @@ if __name__ == "__main__":
     import sys
     try:
         sys.exit(main(sys.argv))
-    except KeyboardInterrupt:
+    except: # Add new line character after status line
         print_msg("")
         raise

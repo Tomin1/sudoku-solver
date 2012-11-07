@@ -1,4 +1,8 @@
-This is supposed to solve Sudokus
+Sudoku Solver
+Solvers sudokus. Works as a library and a standalone program, though library 
+usage could be improved. Relies on multiprocessing and may not give the best 
+performance when used singlethreaded.
+
 Copyright (C), 2011-2012 Tomi Leppänen (aka Tomin)
 The program is licensed under GPL v3
 See LICENSE file for complete license.
