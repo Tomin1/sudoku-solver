@@ -109,7 +109,7 @@ def main(argv):
     manager = Manager() # Manager
     info = Info() # Info object with some shared information
     if arguments["-1"]: info.answers_wanted.value = 1
-    else: info.answers_wanted.value = 0
+    else: info.answers_wanted.set(0)
     wsolver = manager.Queue() # Queue for wip Solvers
     dsudoku = manager.Queue() # Queue for sudokus that are done
     sudoku = Solver(sudoku)
@@ -117,7 +117,7 @@ def main(argv):
         print_err("Invalid sudoku!")
         return 2
     wsolver.put(sudoku)
-    info.solvers.value = info.solvers.value + 1
+    info.solvers.inc()
     if arguments["-t"]:
         runners = [] # array for runners that use solvers
         if arguments["-t"] == True:
@@ -133,23 +133,22 @@ def main(argv):
             runners[cur].start()
     else:
         runner = Runner(wsolver,dsudoku,info)
-    while info.solvers.value > 0: # while there is something to do
+    while info.solvers.get() > 0: # while there is something to do
         # printing status
         if arguments["-t"]:
             sleep(0.08)
         else:
             for i in range(0,50):
                 runner.run(True)
-        if info.solvers.value > info.max_solvers.value:
-            info.max_solvers.value = info.solvers.value
+        if info.solvers.get() > info.max_solvers.get():
+            info.max_solvers.set(info.solvers.get())
         print_status(
-            "Solvers: "+info.getReadable(info.solvers,arguments["-u"])+
-            " Maximum: "+info.getReadable(info.max_solvers,arguments["-u"])+
-            " Splits: "+info.getReadable(info.splits,arguments["-u"])+
-            " Dead: "+info.getReadable(info.dead_solvers,arguments["-u"])+
-            " Answers: "+str(dsudoku.qsize())+
-            " Loops: "+info.getReadable(info.loops,arguments["-u"])+
-            " Extra: "+str(wsolver.qsize()))
+            "Solvers:", info.getReadable(info.solvers,arguments["-u"]),
+            "Maximum:", info.getReadable(info.max_solvers,arguments["-u"]),
+            "Splits:", info.getReadable(info.splits,arguments["-u"]),
+            "Dead:", info.getReadable(info.dead_solvers,arguments["-u"]),
+            "Answers:", str(dsudoku.qsize()),
+            "Loops:", info.getReadable(info.loops,arguments["-u"]))
     print_msg("") # prints newline
     # printing results
     if dsudoku.qsize() == 0:
