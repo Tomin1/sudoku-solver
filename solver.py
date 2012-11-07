@@ -7,26 +7,26 @@
 # © 2011-2012, Tomi Leppänen (aka Tomin), ALL RIGHTS RESERVED!
 import sys
 from copy import deepcopy
-from multiprocessing import Process, Manager, Value, active_children, cpu_count
+from multiprocessing import Process, Manager, Value, cpu_count
 from time import sleep
 
-version = "v5"
+version = "v6"
 
 def parse_sudoku(sudoku): # parses sudoku from array
     a = sudoku.split(",")
     if len(a) != 81:
-        return -1
+        raise SudokuError('Invalid sudoku string')
     sudoku = []
     for i in range(1,10):
         if len(a[(i*9-9):(i*9)]) != 9:
-            return -1
+            raise SudokuError('Invalid sudoku string')
         b = []
         for j in a[(i*9-9):(i*9)]:
             if j != "":
                 try:
                     b.append(int(j))
                 except ValueError:
-                    return -1
+                    raise SudokuError('Invalid sudoku string')
             else:
                 b.append("")
         sudoku.append(b)
@@ -59,33 +59,36 @@ class Runner(Process): # Runs Solver objects
         self.queue = queue
         self.ready = sudokus_ready
         self.info = info_object
+    
     def run(self,noloop=False):
-        while self.info.solvers_get() > 0:
-            self.info.new_loop()
+        while self.info.solvers.value > 0:
+            self.info.loops.value = self.info.loops.value + 1
             solver = self.queue.get()
-            solver.run()
-            if solver.done == True:
-                if solver.good == True: # if sudoku is completed
-                    self.ready.put(solver)
-                    self.info.solvers_dec()
-                    if self.info.answers_wanted_get() <= self.ready.qsize():
-                        self.info.solvers_kill()
-                else: # if sudoku is not completed
-                    if solver.split_request == True: # actual splitting
-                        self.info.splits_inc()
-                        for number in solver.numbers:
-                            tmp = Solver(deepcopy(solver.sudoku))
-                            tmp.sudoku[solver.row][solver.col] = number
-                            self.queue.put(tmp)
-                            self.info.solvers_inc()
-                        self.info.solvers_dec()
-                    else: # if sudoku is faulty
-                        self.info.dead_solvers_inc() 
-                        self.info.solvers_dec()
-            else: # if solver needs to work more
-                self.queue.put(solver)
-            if noloop:
-                break
+            if not solver.run():
+                self.info.dead_solvers.value = self.info.dead_solvers.value + 1
+                self.info.solvers.value = self.info.solvers.value - 1
+            else:
+                if solver.done == True:
+                    if solver.good == True: # if sudoku is completed
+                        self.ready.put(solver)
+                        self.info.solvers.value = self.info.solvers.value - 1
+                        if self.info.answers_wanted.value <= self.ready.qsize():
+                            self.info.solvers.value = 0
+                    else: # if sudoku is not completed
+                        if solver.split_request == True: # actual splitting
+                            self.info.splits.value = self.info.splits.value + 1
+                            for number in solver.numbers:
+                                tmp = Solver(deepcopy(solver.sudoku))
+                                tmp.sudoku[solver.row][solver.col] = number
+                                self.queue.put(tmp)
+                                self.info.solvers.value = \
+                                    self.info.solvers.value + 1
+                            self.info.solvers.value = \
+                                self.info.solvers.value - 1
+                else: # if solver needs to work more
+                    self.queue.put(solver)
+                if noloop:
+                    break
 
 class Solver(): # the Solver object
     def __init__(self, sudoku):
@@ -136,15 +139,17 @@ class Solver(): # the Solver object
                 if self.sudoku[a][b] != "":
                     try:
                         numbersa.index(self.sudoku[a][b])
-                        return False
                     except ValueError:
                         numbersa.append(self.sudoku[a][b])
+                    else:
+                        return False
                 if self.sudoku[b][a] != "":
                     try:
                         numbersb.index(self.sudoku[b][a])
-                        return False
                     except ValueError:
                         numbersb.append(self.sudoku[b][a])
+                    else:
+                        return False
         for r in range(1,4):
             for c in range(1,4):
                 numbersc = []
@@ -153,18 +158,20 @@ class Solver(): # the Solver object
                         if self.sudoku[r_n][c_n] != "":
                             try:
                                 numbersc.index(self.sudoku[r_n][c_n])
-                                return False
                             except ValueError:
                                 numbersc.append(self.sudoku[r_n][c_n])
+                            else:
+                                return False
         return True
     
     def isready(self): # checks if all fields are filled
         for row in self.sudoku:
             try:
                 row.index("")
-                return False
             except ValueError:
                 pass
+            else:
+                return False
         return True
     
     def get_numbers(self,row,col): # returns usable numbers
@@ -193,14 +200,14 @@ class Solver(): # the Solver object
     def run(self): # actual solving
         changed = False
         if self.isready():
-            if self.isgood_final(): # if job is done, return True
+            if self.isgood_final():
                 self.done = True
                 self.good = True
                 return True
             else:
                 self.done = True
                 self.good = False
-                return True
+                return False
         for row in range(0,9):
             for col in range(0,9):
                 if self.sudoku[row][col] == "":
@@ -211,7 +218,7 @@ class Solver(): # the Solver object
                     elif len(numbers) == 0: # got into deadlock
                         self.done = True
                         self.good = False
-                        return True
+                        return False
                     elif self.split_mode != False and len(numbers) >= 2:
                         changed = True # changed!
                         if self.split_mode == 1 and \
@@ -226,7 +233,7 @@ class Solver(): # the Solver object
                             self.done = True
                             self.good = False
                             self.split_request = True
-                            return False # if sudoku is wip return False
+                            return True
         if self.split_mode == 1:
             self.split_mode = 2
         if changed == False: # if nothing has been solved in this round
@@ -235,8 +242,14 @@ class Solver(): # the Solver object
             else: # give up if sudoku is faulty
                 self.done = True
                 self.good = False
-                return True
-        return False
+                return False
+        return True
+    
+class SudokuError(Exception): # General exception for sudokus
+    def __init__(self,value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
 
 class Info(): # Info to be shared between Runners
     def __init__(self):
@@ -244,50 +257,9 @@ class Info(): # Info to be shared between Runners
         self.splits = Value('i',0) # splits
         self.dead_solvers = Value('i',0) # solvers that ended deadlock
         self.solvers = Value('i',0) # solvers in queue
-        self.loops = Value('i',0)
-    
-    def solvers_inc(self,inc = 1):
-        self.solvers.value = self.solvers.value + inc
-    
-    def solvers_dec(self,dec = 1):
-        self.solvers.value = self.solvers.value - dec
-        
-    def solvers_kill(self):
-        self.solvers.value = 0
-        
-    def solvers_get(self):
-        return self.solvers.value
-    
-    def dead_solvers_inc(self,inc = 1):
-        self.dead_solvers.value = self.dead_solvers.value + inc
-        
-    def dead_solvers_get(self):
-        return self.dead_solvers.value
-    
-    def splits_inc(self,inc = 1):
-        self.splits.value = self.splits.value + inc
-        
-    def splits_get(self):
-        return self.splits.value
-        
-    def update_max_solvers(self):
-        self.max_solvers.value = self.solvers.value
-        
-    def max_solvers_get(self):
-        return self.max_solvers.value
-    
-    def answers_wanted_set(self,value):
-        self.answers_wanted = value
-    
-    def answers_wanted_get(self):
-        return self.answers_wanted
-    
-    def new_loop(self):
-        self.loops.value = self.loops.value + 1
-        
-    def loops_get(self):
-        return self.loops.value
-    
+        self.loops = Value('i',0) # how many loops has run
+        self.answers_wanted = Value('i',0) # how many answers are needed
+
 def main(argv):
     # prepare some things
     answers_wanted = 0 # 0 means unlimited answers, default 0
@@ -304,24 +276,34 @@ def main(argv):
         elif arg == "-1":
             answers_wanted = 1
             sudoku = sudoku + 1
-        elif "-t" in arg[0:2]:
+        elif "-t" == arg[0:2]:
             try:
                 use_threads = int(arg[2:])
             except ValueError:
                 use_threads = True
+            else:
+                if use_threads < 0:
+                    use_threads = False
             sudoku = sudoku + 1
         elif arg == "-V":
             print_msg('''Sudoku Solver, version '''+version+'''
 Made by Tomi Leppänen aka Tomin, ALL RIGHTS RESERVED!
 You have no right to copy, redistribute, modify or use this code''')
-    sudoku = parse_sudoku(argv[sudoku])
-    if sudoku == -1:
-        print_err("Invalid sudoku string!")
+            return 2
+    # Try to parse sudoku
+    try: 
+        sudoku = parse_sudoku(argv[sudoku])
+    except SudokuError as e:
+        print_err(e.value)
         return 2
+    if not use_threads: # Some optimations when threads aren't used
+        from multiprocessing.dummy import Process, Manager, Value
+    else:
+        from multiprocessing import Process, Manager, Value
     # begin solving
     manager = Manager() # Manager
     info = Info() # Info object with some shared information
-    info.answers_wanted_set(answers_wanted)
+    info.answers_wanted.value = answers_wanted
     wsolver = manager.Queue() # Queue for wip Solvers
     dsudoku = manager.Queue() # Queue for sudokus that are done
     sudoku = Solver(sudoku)
@@ -329,7 +311,7 @@ You have no right to copy, redistribute, modify or use this code''')
         print_err("Invalid sudoku!")
         return 2
     wsolver.put(sudoku)
-    info.solvers_inc()
+    info.solvers.value = info.solvers.value + 1
     if use_threads:
         runners = [] # array for runners that use solvers
         if use_threads == True:
@@ -341,24 +323,24 @@ You have no right to copy, redistribute, modify or use this code''')
             runners[cur].start()
     else:
         runner = Runner(wsolver,dsudoku,info)
-    while info.solvers_get() > 0: # while there is something to do
+    while info.solvers.value > 0: # while there is something to do
         # printing status
-        if not use_threads:
-            runner.run(True)
-        else:
-            sleep(0.05)
-        if info.solvers_get() > info.max_solvers_get():
-            info.update_max_solvers()
         if use_threads:
+            sleep(0.08)
             running = len(runners)
         else:
-            running = info.solvers_get()
-        print_status("Solvers: Running: "+str(running)+ \
-            " Maximum: "+str(info.max_solvers_get())+ \
-            " Splits: "+str(info.splits_get())+ \
-            " Dead: "+str(info.dead_solvers_get())+ \
+            for i in range(0,50):
+                runner.run(True)
+            running = info.solvers.value
+        if info.solvers.value > info.max_solvers.value:
+            info.max_solvers.value = info.solvers.value
+        print_status("Solvers: "+str(info.solvers.value)+ \
+            " Maximum: "+str(info.max_solvers.value)+ \
+            " Running: "+str(running)+ \
+            " Splits: "+str(info.splits.value)+ \
+            " Dead: "+str(info.dead_solvers.value)+ \
             " Answers: "+str(dsudoku.qsize())+ \
-            " Loops: "+str(info.loops_get())+"    ")
+            " Loops: "+str(info.loops.value)+"  ")
     print_msg("") # prints newline
     # printing results
     if dsudoku.qsize() == 0:
