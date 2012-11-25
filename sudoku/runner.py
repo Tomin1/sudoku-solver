@@ -49,7 +49,7 @@ class Runner(Process):
         self.splits = RawValue('i', 0)
     
     def run(self):
-        """ See Python's Processing class's run method """
+        """See Python's Processing class's run method, called by self.start()"""
         while True:
             solver = self.queue.get()
             if not solver: # Die if item is not a solver but None

@@ -61,7 +61,7 @@ def stop(runners):
     return runner.ready
 
 def loop_check(runners):
-    """Actions that should be done every now and then""" # FIXME
+    """Regular checks to stop runners when queue is empty"""
     if runners[0].queue.empty():
         for runner in runners:
             if runner.running.value:
