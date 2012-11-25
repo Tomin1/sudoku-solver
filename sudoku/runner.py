@@ -18,14 +18,14 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
 
-"""Runner, Info and SharedInt objects"""
+"""Runner object"""
 
 from copy import deepcopy
 try:
-    from multiprocessing import Process, Value, Lock
+    from multiprocessing import Process, RawValue
 except ImportError:
-    from multiprocessing.dummy import Process, Value, Lock
-from solver import Solver
+    from multiprocessing.dummy import Process, RawValue
+from sudoku.solver import Solver
 
 class Runner(Process):
     """Runner object
@@ -33,104 +33,44 @@ class Runner(Process):
     Object that solves sudokus using Solver. Creates necessary queues and 
     monitors sudoku's status. Uses multiprocessing.
     """
-    def __init__(self, queue, sudokus_ready, info_object):
+    def __init__(self, wip_queue, ready_queue):
         """Constructor
         
         Arguments:
-        queue -- Queue for unfinished sudokus
-        sudokus_ready -- Queue for finished sudokus
-        info_object -- See Info object in this module
+        wip_queue -- Queue for unfinished sudokus
+        ready_queue -- Queue for finished sudokus
         """
         Process.__init__(self)
-        self.queue = queue
-        self.ready = sudokus_ready
-        self.info = info_object
+        self.queue = wip_queue
+        self.ready = ready_queue
+        self.running = RawValue('b', False)
+        self.dead = RawValue('i', 0)
+        self.loops = RawValue('i', 0)
+        self.splits = RawValue('i', 0)
     
-    def run(self,noloop=False):
+    def run(self):
         """ See Python's Processing class's run method """
-        while self.info.solvers.get() > 0:
-            self.info.loops.inc()
-            try:
-                solver = self.queue.get()
-            except EOFError:
+        while True:
+            solver = self.queue.get()
+            if not solver: # Die if item is not a solver but None
                 return
-            if not solver.run():
-                self.info.dead_solvers.inc()
-                self.info.solvers.dec()
-            else:
+            self.running.value = True
+            if solver.run():
                 if solver.done:
+                    self.queue.task_done()
                     if solver.good: # if sudoku is completed
                         self.ready.put(solver)
-                        self.info.solvers.dec()
-                        if (self.info.answers_wanted.get() and 
-                                self.info.answers_wanted.get() <= 
-                                self.ready.qsize()):
-                            self.info.solvers.set(0)
                     else: # if sudoku is not completed
                         if solver.split_request: # actual splitting
-                            self.info.splits.inc()
+                            self.splits.value += 1
                             for number in solver.numbers:
                                 tmp = Solver(deepcopy(solver.sudoku))
                                 tmp.sudoku[solver.row][solver.col] = number
                                 self.queue.put(tmp)
-                                self.info.solvers.inc()
-                            self.info.solvers.dec()
                 else: # if solver needs to work more
                     self.queue.put(solver)
-                if noloop:
-                    break
-
-class Info:
-    """Info object
-    
-    Contains information to be shared between runners.
-    """
-    def __init__(self):
-        self.max_solvers = SharedInt() # max solvers
-        self.splits = SharedInt() # splits
-        self.dead_solvers = SharedInt() # solvers that ended deadlock
-        self.solvers = SharedInt() # solvers in queue
-        self.loops = SharedInt() # how many loops has run
-        self.answers_wanted = SharedInt() # how many answers are needed
-    
-    def getReadable(self,value,d=False):
-        """Gives more readable representation of value
-        
-        If d is True the value is returned as is.
-        """
-        if d:
-            return str(value.get())
-        
-        a = value.get()
-        s = str(a)
-        if a // 1000000:
-            return s[:-6]+"M"+s[-6]
-        if a // 1000:
-            return s[:-3]+"k"+s[-3]
-        return str(a)
-
-class SharedInt:
-    """Integer in shared memory"""
-    def __init__(self,value=0):
-        self.lock = Lock()
-        self.value = Value('i',value)
-    
-    def inc(self,inc=1):
-        """Increases value"""
-        with self.lock:
-            self.value.value = self.value.value + inc
-    
-    def dec(self,dec=1):
-        """Decreases value"""
-        with self.lock:
-            self.value.value = self.value.value - dec
-    
-    def get(self):
-        """Returns value"""
-        with self.lock:
-            return self.value.value
-    
-    def set(self,value):
-        """Sets new value"""
-        with self.lock:
-            self.value.value = value
+            else:
+                self.queue.task_done()
+                self.dead.value += 1
+            self.running.value = False
+            self.loops.value += 1

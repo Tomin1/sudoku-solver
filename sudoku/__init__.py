@@ -17,4 +17,4 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
-__all__ = ["runner","solver","tools"]
+__all__ = ["control","runner","solver","tools"]

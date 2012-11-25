@@ -29,16 +29,15 @@ Usage: <the name of this file [-1] [-t[<threads>]] [-u] <sudoku>
 or: <the name of this file> [-h] [-V]
 -h              displays this help
 -1              limits answers to only one
--t              use multiprocessing, uses as many threads as computer has CPUs
+-t              use multiprocessing, uses as many threads as computer has 
+                CPUs (default)
 -t<threads>     use multiprocessing, uses number of <threads> threads
 -u              don't use suffixes in long numbers
 -V              prints version and licensing information
 """
 
 from util.printing import *
-from sudoku.runner import *
-from sudoku.solver import *
-from sudoku.tools import *
+from sudoku import *
 # Does this cause any problems on systems without Python's multiprocessing?
 from multiprocessing import cpu_count
 from time import sleep
@@ -97,27 +96,15 @@ def main(argv):
         return 0
     # try to parse sudoku
     try: 
-        sudoku = parse_sudoku(sudoku)
+        sudoku = tools.parse_sudoku(sudoku)
     except SudokuError as e:
         print_err(e.value)
         return 2
-    if not arguments["-t"]: # Some optimations when threads aren't used
-        from multiprocessing.dummy import Process, Manager, Value
-    else:
-        from multiprocessing import Process, Manager, Value
     # begin solving
-    manager = Manager() # Manager
-    info = Info() # Info object with some shared information
-    if arguments["-1"]: info.answers_wanted.set(1)
-    else: info.answers_wanted.set(0)
-    wsolver = manager.Queue() # Queue for wip Solvers
-    dsudoku = manager.Queue() # Queue for sudokus that are done
-    sudoku = Solver(sudoku)
+    sudoku = solver.Solver(sudoku)
     if not sudoku.isgood(): # one more check
         print_err("Invalid sudoku!")
         return 2
-    wsolver.put(sudoku)
-    info.solvers.inc()
     if arguments["-t"]:
         runners = [] # array for runners that use solvers
         if arguments["-t"] == True:
@@ -128,36 +115,33 @@ def main(argv):
             except ValueError:
                 print_err("Invalid value for thread count: "+arguments["-t"])
                 return 2
-        for cur in range(0,max):
-            runners.append(Runner(wsolver,dsudoku,info))
-            runners[cur].start()
+        runners = control.start(sudoku,max)
     else:
-        runner = Runner(wsolver,dsudoku,info)
-    while info.solvers.get() > 0: # while there is something to do
-        # printing status
-        if arguments["-t"]:
-            sleep(0.08)
-        else:
-            for i in range(0,50):
-                runner.run(True)
-        if info.solvers.get() > info.max_solvers.get():
-            info.max_solvers.set(info.solvers.get())
+        runners = control.start(sudoku,cpu_count())
+    # printing status
+    while True:
+        info = control.get_status(runners)
         print_status(
-            "Solvers:", info.getReadable(info.solvers,arguments["-u"]),
-            "Maximum:", info.getReadable(info.max_solvers,arguments["-u"]),
-            "Splits:", info.getReadable(info.splits,arguments["-u"]),
-            "Dead:", info.getReadable(info.dead_solvers,arguments["-u"]),
-            "Answers:", str(dsudoku.qsize()),
-            "Loops:", info.getReadable(info.loops,arguments["-u"]))
+            "Solvers:", get_readable(info['solvers'],arguments["-u"]),
+            "Maximum:", get_readable(info['solvers']+info['dead'],
+                                    arguments["-u"]),
+            "Splits:", get_readable(info['splits'],arguments["-u"]),
+            "Dead:", get_readable(info['dead'],arguments["-u"]),
+            "Answers:", get_readable(info['answers'],arguments["-u"]),
+            "Loops:", get_readable(info['loops'],arguments["-u"]))
+        done = control.loop_check(runners)
+        if done:
+            break
+        sleep(0.5)
     print_msg("") # prints newline
     # printing results
-    if dsudoku.qsize() == 0:
+    if not info['answers']:
         print_msg("Sudoku was not solved!")
         return 1
     else:
-        print_msg("Answers: "+str(dsudoku.qsize()))
-        while not dsudoku.empty():
-            wsudoku = dsudoku.get()
+        print_msg("Answers: "+str(info['answers']))
+        while not done.empty():
+            wsudoku = done.get()
             print_msg("One answer is:")
             for row in wsudoku.sudoku:
                 print_msg(str(row))

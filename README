@@ -13,8 +13,8 @@ This version is called sophisticated
 GENERAL:
 --------------------------------------------------------------------------------
 Solves most sudokus and prints all answers (unless -1 argument is specified). 
-This program can take advantage of multithreading and has a small commandline 
-interface. Solver prints statusbar while running and uses suffixes like "k" for 
+This program uses multithreading and has a small commandline interface. 
+Solver prints statusbar while running and uses suffixes like "k" for 
 1000 to reduce space that statusbar needs.
 
 If you have something to ask or praise about this program, you may want to 
@@ -25,7 +25,8 @@ USAGE:
 Short list of arguments:
 -h              displays list of arguments, similar to this list
 -1              limits answers to only one
--t              use multiprocessing, uses as many threads as computer has CPUs
+-t              use multiprocessing, uses as many threads as computer has 
+                CPUs (default)
 -t<threads>     use multiprocessing, uses number of <threads> threads
 -u              don't use suffixes in long numbers (k = 1000 and M = million)
 -V              prints version and licensing information
@@ -36,16 +37,16 @@ http://en.wikipedia.org/wiki/File:Sudoku_puzzle_hard_for_brute_force.jpg
 I use ./solver.py as the command, but that can be basically anything depending 
 on where you have saved your sudoku-solver and is it in PATH.
 
-Solving sudoku:
+Solve a sudoku:
 ./solver.py ,,,,,,,,,,,,,,3,,8,5,,,1,,2,,,,,,,,5,,7,,,,,,4,,,,1,,,,9,,,,,,,,5,,,,,,,7,3,,,2,,1,,,,,,,,,4,,,,9
 
-To use threads and get only one sudoku:
-./solver.py -t -1 ,,,,,,,,,,,,,,3,,8,5,,,1,,2,,,,,,,,5,,7,,,,,,4,,,,1,,,,9,,,,,,,,5,,,,,,,7,3,,,2,,1,,,,,,,,,4,,,,9
+Use two threads and get only one answer:
+./solver.py -t2 -1 ,,,,,,,,,,,,,,3,,8,5,,,1,,2,,,,,,,,5,,7,,,,,,4,,,,1,,,,9,,,,,,,,5,,,,,,,7,3,,,2,,1,,,,,,,,,4,,,,9
 
 NOTES:
 --------------------------------------------------------------------------------
-The program behaves differently if you use -t1 than if you don't use -t 
-at all. Usually without -t gives better performance than -t1 .
+The program uses always multithreading, but if multithreading can't be 
+imported it uses multithreading.dummy unless even that's not available.
 
 Don't try to solve sudokus that can't really be solved or you can but it will 
 take a very long time and you'll run out of memory for sure.

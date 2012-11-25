@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 # 
-#  Printing tools, version 0.2
+#  Printing tools, version 0.3
 #  Copyright (C) 2011-2012, Tomi Leppänen (aka Tomin)
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -55,3 +55,18 @@ def print_status(*message):
     else:
         stdout.write(message)
         status_max_len = len(message)
+
+def get_readable(value,dont_change=False):
+    """Gives more readable representation of value
+    
+    If dont_change is True the value is returned as is.
+    """
+    if dont_change:
+        return str(value)
+    
+    s = str(value)
+    if value // 1000000:
+        return s[:-6]+"M"+s[-6]
+    if value // 1000:
+        return s[:-3]+"k"+s[-3]
+    return s
