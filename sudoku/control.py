@@ -48,23 +48,18 @@ def start(sudoku,number_of_runners,number_of_answers=None):
     runners = []
     for cur in range(number_of_runners):
         runners.append(Runner(wip_solvers,done_solvers))
+        runners[cur].daemon = True
         runners[cur].start()
     return runners
 
-def stop(runners):
-    """Stops solving sudokus, returns solved sudokus"""
-    for runner in runners:
-        runner.alive = False
-        runner.queue.put(None) # This will kill a runner (any of them)
-    for runner in runners:
-        runner.join()
-    return runner.ready
 
-def loop_check(runners):
+def loop_check(runners,answers_wanted=0):
     """Regular checks to stop runners when queue is empty"""
+    if answers_wanted != 0 and runners[0].ready.qsize() >= answers_wanted:
+        return runners[0].ready
     if runners[0].queue.empty():
         for runner in runners:
             if runner.running.value:
                 return False
-        return stop(runners)
+        return runner.ready
     return False

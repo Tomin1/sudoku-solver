@@ -52,12 +52,9 @@ class Runner(Process):
         """See Python's Processing class's run method, called by self.start()"""
         while True:
             solver = self.queue.get()
-            if not solver: # Die if item is not a solver but None
-                return
             self.running.value = True
             if solver.run():
                 if solver.done:
-                    self.queue.task_done()
                     if solver.good: # if sudoku is completed
                         self.ready.put(solver)
                     else: # if sudoku is not completed
@@ -70,7 +67,7 @@ class Runner(Process):
                 else: # if solver needs to work more
                     self.queue.put(solver)
             else:
-                self.queue.task_done()
                 self.dead.value += 1
             self.running.value = False
             self.loops.value += 1
+        return

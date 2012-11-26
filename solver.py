@@ -129,7 +129,11 @@ def main(argv):
             "Dead:", get_readable(info['dead'],arguments["-u"]),
             "Answers:", get_readable(info['answers'],arguments["-u"]),
             "Loops:", get_readable(info['loops'],arguments["-u"]))
-        done = control.loop_check(runners)
+        
+        if arguments["-1"]:
+            done = control.loop_check(runners,1)
+        else:
+            done = control.loop_check(runners)
         if done:
             break
         sleep(0.5)
