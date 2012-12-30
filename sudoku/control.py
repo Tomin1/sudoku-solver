@@ -20,13 +20,11 @@
 
 """Controlling runner objects"""
 
-from sudoku.runner import Runner
-
 def get_status(runners):
     """Returns some info about runner objects"""
     info = {
         'answers':runners[0].ready.qsize(),
-        'solvers':runners[0].queue.qsize(),
+        'solvers':runners[0].queue.tsize(),
         'dead':0,
         'splits':0,
         'loops':0
@@ -41,8 +39,9 @@ def get_status(runners):
 
 def start(sudoku,number_of_runners,number_of_answers=None):
     """Begins solving sudokus, uses multithreading"""
-    from multiprocessing import JoinableQueue, Process, Queue
-    wip_solvers = JoinableQueue() # Queue for wip Solvers
+    from sudoku.runner import Pile, Runner
+    from multiprocessing import Queue
+    wip_solvers = Pile() # Queue for wip Solvers
     done_solvers = Queue() # Queue for sudokus that are done
     wip_solvers.put(sudoku)
     runners = []
@@ -52,14 +51,10 @@ def start(sudoku,number_of_runners,number_of_answers=None):
         runners[cur].start()
     return runners
 
-
-def loop_check(runners,answers_wanted=0):
-    """Regular checks to stop runners when queue is empty"""
+def is_ready(runners,answers_wanted=0):
+    """Checks to tell main to stop runners when queue is empty"""
     if answers_wanted != 0 and runners[0].ready.qsize() >= answers_wanted:
         return runners[0].ready
-    if runners[0].queue.empty():
-        for runner in runners:
-            if runner.running.value:
-                return False
-        return runner.ready
+    if runners[0].queue.is_done():
+        return runners[0].ready
     return False
