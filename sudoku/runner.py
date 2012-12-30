@@ -78,6 +78,52 @@ class Pile(Queue):
         return self._tasks.value
         return False
 
+class Pile(Queue):
+    """Pile object
+    
+    Contains sudokus.
+    """
+    
+    _tasks = RawValue('i',0)
+    _tasks_lock = Lock()
+    
+    def __init__(self, maxsize=0):
+        """Constructor
+        
+        Parameters:
+        maxsize -- Maximium size of this Pile
+        """
+        Queue.__init__(self, maxsize)
+    
+    def is_done(self):
+        """Returns whether all tasks are done"""
+        if self._tasks.value == 0:
+            return True
+    
+    def put(self, obj, block=True, timeout=None):
+        """Used when a task is put first time"""
+        Queue.put(self, obj, block, timeout)
+        self._tasks_lock.acquire()
+        self._tasks.value += 1
+        self._tasks_lock.release()
+    
+    def put_back(self, obj, block=True, timeout=None):
+        """Used when a task is put back to be processed more"""
+        Queue.put(self, obj, block, timeout)
+    
+    def task_done(self):
+        """Called when task won't be put back"""
+        self._tasks_lock.acquire()
+        if self._tasks.value <= 0:
+            raise IndexError('All tasks are already done')
+        self._tasks.value -= 1
+        self._tasks_lock.release()
+    
+    def tsize(self):
+        """Returns how many tasks are left to do"""
+        return self._tasks.value
+        return False
+
 class Runner(Process):
     """Runner object
     
