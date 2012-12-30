@@ -18,38 +18,100 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
 
-"""Runner object"""
+"""Runner and Pile object"""
 
 from copy import deepcopy
 try:
-    from multiprocessing import Process, RawValue
+    from multiprocessing import Process, RawValue, Lock
+    from multiprocessing.queues import Queue
 except ImportError:
-    from multiprocessing.dummy import Process, RawValue
+    from multiprocessing.dummy import Process, RawValue, Lock
+    from multiprocessing.dummy.queues import Queue
 from sudoku.solver import Solver
+
+class Pile(Queue):
+    """Pile object
+    
+    Contains sudokus.
+    """
+    
+    _tasks = RawValue('i',0)
+    _tasks_lock = Lock()
+    
+    def __init__(self, maxsize=0):
+        """Constructor
+        
+        Parameters:
+        maxsize -- Maximium size of this Pile
+        """
+        Queue.__init__(self, maxsize)
+    
+    def is_done(self):
+        """Returns whether all tasks are done"""
+        if self._tasks.value == 0:
+            return True
+    
+    def put(self, obj, block=True, timeout=None):
+        """Used when a task is put first time"""
+        Queue.put(self, obj, block, timeout)
+        self._tasks_lock.acquire()
+        self._tasks.value += 1
+        self._tasks_lock.release()
+    
+    def put_back(self, obj, block=True, timeout=None):
+        """Used when a task is put back to be processed more"""
+        Queue.put(self, obj, block, timeout)
+    
+    def task_done(self):
+        """Called when task won't be put back"""
+        self._tasks_lock.acquire()
+        if self._tasks.value <= 0:
+            raise IndexError('All tasks are already done')
+        self._tasks.value -= 1
+        self._tasks_lock.release()
+    
+    def tsize(self):
+        """Returns how many tasks are left to do"""
+        return self._tasks.value
+        return False
 
 class Runner(Process):
     """Runner object
     
     Object that solves sudokus using Solver. Creates necessary queues and 
     monitors sudoku's status. Uses multiprocessing.
+    
+    Attributes:
+    queue -- Pile (Queue) for unfinished sudokus
+    ready -- Queue for finished sudokus
+    
+    Also available:
+    running -- Is this Runner processing something
+    dead -- Number of dead solvers
+    loops -- Number of loops run
+    splits -- Number of splits made by this Runner
     """
+    
+    queue = None
+    ready = None
+    
     def __init__(self, wip_queue, ready_queue):
         """Constructor
         
         Arguments:
-        wip_queue -- Queue for unfinished sudokus
+        wip_queue -- Pile (Queue) for unfinished sudokus
         ready_queue -- Queue for finished sudokus
         """
         Process.__init__(self)
-        self.queue = wip_queue
-        self.ready = ready_queue
         self.running = RawValue('b', False)
         self.dead = RawValue('i', 0)
         self.loops = RawValue('i', 0)
         self.splits = RawValue('i', 0)
+        self.queue = wip_queue
+        self.ready = ready_queue
     
     def run(self):
-        """See Python's Processing class's run method, called by self.start()"""
+        """See multiprocessing.Process.run, called by self.start()"""
         while True:
             solver = self.queue.get()
             self.running.value = True
@@ -57,6 +119,7 @@ class Runner(Process):
                 if solver.done:
                     if solver.good: # if sudoku is completed
                         self.ready.put(solver)
+                        self.queue.task_done()
                     else: # if sudoku is not completed
                         if solver.split_request: # actual splitting
                             self.splits.value += 1
@@ -64,10 +127,12 @@ class Runner(Process):
                                 tmp = Solver(deepcopy(solver.sudoku))
                                 tmp.sudoku[solver.row][solver.col] = number
                                 self.queue.put(tmp)
+                            self.queue.task_done()
                 else: # if solver needs to work more
-                    self.queue.put(solver)
+                    self.queue.put_back(solver)
             else:
                 self.dead.value += 1
+                self.queue.task_done()
             self.running.value = False
             self.loops.value += 1
         return

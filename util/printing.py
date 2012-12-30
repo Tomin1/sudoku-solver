@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 # 
-#  Printing tools, version 0.3
+#  Printing tools, version 0.3-python2.7
 #  Copyright (C) 2011-2012, Tomi Leppänen (aka Tomin)
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -25,22 +25,30 @@ Tools to print messages, error messages and program status.
 
 from sys import stdout, stderr
 
-def print_msg(*messages,separator=" "):
+def print_msg(*messages,**kargs):
     """Prints normal messages, just like print
     
     I don't know if using print() is more efficient, but at least I got better 
     results using this custom function. 
     """
+    separator = kargs.get('separator')
     for message in messages:
         stdout.write(str(message))
-        stdout.write(separator)
+        if separator: 
+            stdout.write(separator)
+        else: 
+            stdout.write(" ")
     stdout.write("\n")
 
-def print_err(*messages,separator=" "):
+def print_err(*messages,**kargs):
     """Prints error mesasges"""
+    separator = kargs.get('separator')
     for message in messages:
         stderr.write(str(message))
-        stderr.write(separator)
+        if separator: 
+            stderr.write(separator)
+        else: 
+            stderr.write(" ")
     stderr.write("\n")
 
 status_max_len = 0

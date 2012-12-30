@@ -97,7 +97,7 @@ def main(argv):
     # try to parse sudoku
     try: 
         sudoku = tools.parse_sudoku(sudoku)
-    except SudokuError as e:
+    except tools.SudokuError as e:
         print_err(e.value)
         return 2
     # begin solving
@@ -131,9 +131,9 @@ def main(argv):
             "Loops:", get_readable(info['loops'],arguments["-u"]))
         
         if arguments["-1"]:
-            done = control.loop_check(runners,1)
+            done = control.is_ready(runners,1)
         else:
-            done = control.loop_check(runners)
+            done = control.is_ready(runners)
         if done:
             break
         sleep(0.5)
