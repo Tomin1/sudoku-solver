@@ -12,8 +12,8 @@ This version is called sophisticated
 GENERAL:
 --------------------------------------------------------------------------------
 Solves most sudokus and prints all answers (unless -1 argument is specified). 
-This program uses multithreading and has a small commandline interface. 
-Solver prints statusbar while running and uses suffixes like "k" for 
+This program can use multithreading (see -t) and has a small commandline 
+interface. Solver prints statusbar while running and uses suffixes like "k" for 
 1000 to reduce space that statusbar needs.
 
 If you have something to ask or praise about this program, you may want to 
