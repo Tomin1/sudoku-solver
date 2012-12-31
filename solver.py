@@ -30,7 +30,7 @@ or: <the name of this file> [-h] [-V]
 -h              displays this help
 -1              limits answers to only one
 -t              use multiprocessing, uses as many threads as computer has 
-                CPUs (default)
+                CPUs
 -t<threads>     use multiprocessing, uses number of <threads> threads
 -u              don't use suffixes in long numbers
 -V              prints version and licensing information
@@ -38,8 +38,10 @@ or: <the name of this file> [-h] [-V]
 
 from util.printing import *
 from sudoku import *
-# Does this cause any problems on systems without Python's multiprocessing?
-from multiprocessing import cpu_count
+try:
+    from multiprocessing import cpu_count
+except ImportError:
+    cpu_count = None
 from time import sleep
 
 version = "v7"
@@ -117,7 +119,7 @@ def main(argv):
                 return 2
         runners = control.start(sudoku,max)
     else:
-        runners = control.start(sudoku,cpu_count())
+        runners = control.start(sudoku,1,nomp=True)
     # printing status
     while True:
         info = control.get_status(runners)

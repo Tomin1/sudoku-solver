@@ -1,6 +1,6 @@
 Sudoku Solver
 Solves sudokus. Works as a library and a standalone program, though library 
-usage could be improved. Uses multiprocessing.
+usage could be improved. Can take advantage of multiprocessing.
 
 Copyright (C), 2011-2012 Tomi Leppänen (aka Tomin)
 The program is licensed under GPL v3
@@ -25,7 +25,7 @@ Short list of arguments:
 -h              displays list of arguments, similar to this list
 -1              limits answers to only one
 -t              use multiprocessing, uses as many threads as computer has 
-                CPUs (default)
+                CPUs
 -t<threads>     use multiprocessing, uses number of <threads> threads
 -u              don't use suffixes in long numbers (k = 1000 and M = million)
 -V              prints version and licensing information
@@ -44,8 +44,10 @@ Use two threads and get only one answer:
 
 NOTES:
 --------------------------------------------------------------------------------
-The program uses always multithreading, but if multithreading can't be 
-imported it uses multithreading.dummy unless even that's not available.
+If -t is specified and multithreading can't be imported it uses 
+multithreading.dummy unless even that's not available.
+
+Starting the program without -t and with -t1 aren't the same.
 
 Don't try to solve sudokus that can't really be solved or you can but it will 
 take a very long time and you'll run out of memory for sure.

@@ -18,16 +18,19 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  
 
-"""Runner and Pile object"""
+"""Runner and Pile object without multiprocessing depedency
+
+These versions don't use multiprocessing but they are implemented only minimal 
+changes compared to regular ones."""
 
 from copy import deepcopy
-try:
-    from multiprocessing import Process, RawValue, Lock
-    from multiprocessing.queues import Queue
-except ImportError:
-    from multiprocessing.dummy import Process, RawValue, Lock
-    from multiprocessing.dummy.queues import Queue
+from ctypes import c_byte, c_int
+from queue import Queue
 from sudoku.solver import Solver
+try:
+    from threading import Thread, Lock
+except ImportError:
+    from dummy_threading import Thread, Lock
 from warnings import warn
 
 class Pile(Queue):
@@ -43,7 +46,7 @@ class Pile(Queue):
         maxsize -- Maximium size of this Pile
         """
         Queue.__init__(self, maxsize)
-        self._tasks = RawValue('i',0)
+        self._tasks = c_int(0)
         self._tasks_lock = Lock()
     
     def is_done(self):
@@ -77,7 +80,7 @@ class Pile(Queue):
         return self._tasks.value
         return False
 
-class Runner(Process):
+class Runner(Thread):
     """Runner object
     
     Object that solves sudokus using Solver. Creates necessary queues and 
@@ -104,11 +107,11 @@ class Runner(Process):
         wip_queue -- Pile (Queue) for unfinished sudokus
         ready_queue -- Queue for finished sudokus
         """
-        Process.__init__(self)
-        self.running = RawValue('b', False)
-        self.dead = RawValue('i', 0)
-        self.loops = RawValue('i', 0)
-        self.splits = RawValue('i', 0)
+        Thread.__init__(self)
+        self.running = c_byte(False)
+        self.dead = c_int(0)
+        self.loops = c_int(0)
+        self.splits = c_int(0)
         self.queue = wip_queue
         self.ready = ready_queue
     
